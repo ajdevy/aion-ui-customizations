@@ -1,40 +1,36 @@
-# AionUI Customizations
+# AionUI & Codex Customizations
 
-Customizations for [AionUI](https://aionui.ai) — the AI agent desktop app that uses opencode as its backend.
+Customizations for:
+- **AionUI** — the AI agent desktop app that uses opencode as its backend
+- **Codex Desktop (Intel Mac)** — OpenAI Codex app converted for Intel Macs via codex-intel
 
-## What this does
+## Features
 
-Configures AionUI's OpenCode assistants to **bypass all permission prompts** (edit, bash, read, etc.) so the agent runs in full-access mode without asking for confirmation.
+| Customization | Target App | Description |
+|---------------|------------|-------------|
+| **Permission Bypass** | AionUI | Bypass all OpenCode permission prompts (edit, bash, read, etc.) |
+| **Mark as Unread** | Codex/Codex-Intel | Add "Mark as unread"/"Mark as read" to conversation overflow menu with blue dot indicator |
 
-## Files
+---
 
-| File | Purpose |
-|------|---------|
-| `apply.sh` | Applies the permission bypass to AionUI's backend database |
-| `revert.sh` | Reverts back to default `auto` permission mode |
-| `verify.sh` | Checks current permission state for OpenCode assistants |
+## 1. Permission Bypass (AionUI)
 
-## How it works
+Configures AionUI's OpenCode assistants to **bypass all permission prompts** so the agent runs in full-access mode without asking for confirmation.
 
-AionUI stores assistant configuration in a SQLite database at:
+### Files
+- `apply.sh` — Applies the permission bypass to AionUI's backend database
+- `revert.sh` — Reverts back to default `auto` permission mode
+- `verify.sh` — Checks current permission state for OpenCode assistants
 
+### How it works
+AionUI stores assistant configuration in SQLite at:
 ```
 ~/Library/Application Support/AionUi/aionui/aionui-backend.db
 ```
 
-The `assistant_definitions` table has two relevant columns:
+Sets `default_permission_mode = 'fixed'` with `default_permission_value = 'agent-full-access'`.
 
-- `default_permission_mode` — `'auto'` (agent default) or `'fixed'` (override)
-- `default_permission_value` — when `fixed`, the permission mode to use:
-  - `'agent-full-access'` — no permission prompts, full access
-  - `'yolo'` — same as full access (alias)
-  - `'build'` — normal mode (asks for permissions)
-  - `'plan'` — read-only, no edit tools
-
-Setting `default_permission_mode` to `'fixed'` with value `'agent-full-access'` bypasses all permission prompts.
-
-## Usage
-
+### Usage
 ```bash
 # Apply (bypass all permission prompts)
 ./apply.sh
@@ -46,14 +42,56 @@ Setting `default_permission_mode` to `'fixed'` with value `'agent-full-access'` 
 ./revert.sh
 ```
 
-**Note:** Changes apply to **new conversations only**. Existing conversations keep their current permission snapshot.
+---
 
-## Requirements
+## 2. Mark as Unread (Codex / Codex-Intel)
 
-- macOS (AionUI is a macOS Electron app)
-- AionUI installed at `/Applications/AionUi.app`
-- SQLite3 (pre-installed on macOS)
+Adds "Mark as unread" and "Mark as read" menu items to the conversation overflow menu (three-dot menu) in the sidebar. Shows a blue dot indicator for unread conversations.
+
+### Files
+- `patches/apply-mark-as-unread.sh` — Applies the JS patches to extracted app bundle
+- `patches/revert-mark-as-unread.sh` — Restores original files (requires backup)
+
+### How it works
+Patches the extracted Electron app's webview assets:
+1. `thread-overflow-menu-*.js` — Adds the menu items and action handlers
+2. `projects-index-page-*.js` — Passes `hasUnreadTurn` state to the menu
+
+The feature uses existing backend infrastructure (`markConversationAsRead`/`markConversationAsUnread` IPC handlers) that was already implemented but not exposed in the UI.
+
+### Usage
+```bash
+# After running codex-intel's install.sh (which extracts app.asar):
+./patches/apply-mark-as-unread.sh /path/to/extracted/app/webview/assets
+
+# Or with default codex-intel path:
+./patches/apply-mark-as-unread.sh
+```
+
+**Note:** This must be run after extracting the app bundle. For codex-intel, run it after `./install.sh` completes the extraction step.
+
+### How it looks
+- Right-click (or click ⋯) on any conversation in the sidebar → "Mark as unread" / "Mark as read"
+- Unread conversations show a blue dot indicator in the sidebar
+- Works for both regular conversations and project conversations
+
+---
 
 ## Reinstalling
 
-If AionUI is reinstalled, the database is rebuilt and these customizations need to be re-applied. Run `./apply.sh` after reinstall.
+If AionUI or Codex is reinstalled, the database/app is rebuilt and customizations need to be re-applied:
+
+```bash
+# AionUI
+./apply.sh
+
+# Codex (after re-running install.sh)
+./patches/apply-mark-as-unread.sh
+```
+
+## Requirements
+- macOS
+- AionUI installed at `/Applications/AionUi.app` (for permission bypass)
+- Codex/Codex-Intel installed (for mark-as-unread)
+- SQLite3 (pre-installed on macOS)
+- bash
